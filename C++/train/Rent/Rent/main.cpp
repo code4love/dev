@@ -36,6 +36,7 @@ void output_result(int code)
 		result_map[E_RENT_HOUSE] = "E003:";
 		result_map[E_TOO_MANY_HOUSE] = "E004:";
 		result_map[E_NO_RENTED_HOUSE] = "E005:";
+		result_map_inited = true;
 	}
 	if (result_map.find(code) != result_map.end())
 		cout << result_map[code] << endl;
@@ -322,5 +323,6 @@ int main(int argc, char* argv)
 	add_tenant("5", 2, 80, 0, 0, 10);
 	add_tenant("6", 2, 80, 0, 0, 10);
 	int code = query();
+	output_result(code);
 	output_result(code);
 }
