@@ -46,14 +46,6 @@ class House;
 class Tenant
 {
 public:
-	string	name;				// 姓名，长度[1,20]
-	int		type;				// 要求户型[1,4]
-	int		area;				// 要求面积[1,200]
-	int		orientation;		// 要求朝向[0,1]
-	int		elevator;			// 要求是否有电梯[0,1]
-	int		house_index;		// 所租房屋序号，没有租到为-1
-	int		rent_month;			// 租房月数
-
 	Tenant(string name = string(), int type = 0, int area = 0,
 		int orientation = 0, int elevator = 0, int rent_month = 0)
 	{
@@ -66,6 +58,15 @@ public:
 		this->house_index = -1;
 	}
 	void rent_house(const House& house);
+
+public:
+	string	name;				// 姓名，长度[1,20]
+	int		type;				// 要求户型[1,4]
+	int		area;				// 要求面积[1,200]
+	int		orientation;		// 要求朝向[0,1]
+	int		elevator;			// 要求是否有电梯[0,1]
+	int		house_index;		// 所租房屋序号，没有租到为-1
+	int		rent_month;			// 租房月数
 };
 
 
@@ -73,15 +74,6 @@ public:
 class House
 {
 public:
-	int		area;				// 面积[1,200]
-	int		type;				// 户型[1,4]
-	int		orientation;		// 朝向[1,4]
-	int		elevator;			// 是否有电梯[0,1]
-	int		month_rental;		// 每月租金[100,20000]
-	int		total_rental;		// 当前已收的总租金
-	int		rented;				// 是否已出租[0,1]
-	int		index;				// 最初录入顺序
-
 	House(int area = 0, int type = 0, int orientation = 0, 
 		int elevator = 0, int month_rental = 0)
 	{
@@ -95,7 +87,8 @@ public:
 		this->index = -1;
 	}
 
-	bool satisfy(const Tenant& tenant) {
+	bool satisfy(const Tenant& tenant) 
+	{
 		if (this->rented)
 			return false;
 		bool s_area = area >= tenant.area;
@@ -107,46 +100,56 @@ public:
 		return 	s_area && s_type && s_orientation && s_elevator;
 	}
 
-	void rent_to_tenant(const Tenant& tenant) {
+	void rent_to_tenant(const Tenant& tenant) 
+	{
 		this->total_rental += this->month_rental * tenant.rent_month;
 		this->rented = 1;
 	}
 
-	void refund(const Tenant& tenant) {
+	void refund(const Tenant& tenant) 
+	{
 		this->total_rental -= (this->month_rental-1) * tenant.rent_month;
 		this->rented = 0;
 	}
 
-	static bool compare_by_satify(const House& h1, const House& h2) {
+	static bool compare_by_satify(const House& h1, const House& h2) 
+	{
 		if (h1.area < h2.area)
 			return true;
 		if (h1.area > h2.area)
 			return false;
+
 		if (h1.type > h2.type)
 			return true;
 		if (h1.type < h2.type)
 			return false;
+
 		if (h1.month_rental < h2.month_rental)
 			return true;
 		if (h1.month_rental > h2.month_rental)
 			return false;
+
 		return h1.index < h2.index;
 	}
 
-	static bool compare_by_rental(const House& h1, const House& h2) {
+	static bool compare_by_rental(const House& h1, const House& h2) 
+	{
 		if (h1.total_rental > h2.total_rental)
 			return true;
 		if (h1.total_rental < h2.total_rental)
 			return false;
+
 		int orient_weigh[] = { 2, 3, 4, 1 };
-		if (orient_weigh[h1.orientation-1] > orient_weigh[h2.orientation - 1])
+		if (orient_weigh[h1.orientation-1] > orient_weigh[h2.orientation-1])
 			return true;
-		if (orient_weigh[h1.orientation - 1] < orient_weigh[h2.orientation - 1])
+		if (orient_weigh[h1.orientation-1] < orient_weigh[h2.orientation-1])
 			return false;
+
 		if (h1.elevator > h2.elevator)
 			return true;
 		if (h1.elevator < h2.elevator)
 			return false;
+
 		return h1.type < h2.type;
 	}
 
@@ -159,6 +162,15 @@ public:
 			 << house.index;
 		return os;
 	}
+public:
+	int		area;				// 面积[1,200]
+	int		type;				// 户型[1,4]
+	int		orientation;		// 朝向[1,4]
+	int		elevator;			// 是否有电梯[0,1]
+	int		month_rental;		// 每月租金[100,20000]
+	int		total_rental;		// 当前已收的总租金
+	int		rented;				// 是否已出租[0,1]
+	int		index;				// 最初录入顺序
 };
 
 void Tenant::rent_house(const House& house) 
@@ -166,10 +178,11 @@ void Tenant::rent_house(const House& house)
 	this->house_index = house.index;
 }
 
-class Tenants :public vector<Tenant>
+class Tenants : public vector<Tenant>
 {
 public:
-	Tenants::iterator find(const string& name) {
+	Tenants::iterator find(const string& name) 
+	{
 		for (Tenants::iterator it = this->begin(); 
 			it != this->end(); ++it)
 			if (it->name == name) {
@@ -180,8 +193,62 @@ public:
 };
 typedef vector<House>		Houses;
 
-Houses		g_houses;			// 系统中录入的所有房屋
-Tenants		g_tenants;			// 租到房的租户
+class RentManager 
+{
+public:
+	static int add_house(House& house) {
+		house.index = RentManager::houses.size();
+		RentManager::houses.push_back(house);
+		return S_ADD_HOUSE;
+	}
+
+	static void get_satisfy_houses(Houses& satisfy_houses, const Tenant& tenant) 
+	{
+		for (Houses::iterator it = RentManager::houses.begin();
+			it != RentManager::houses.end(); ++it) {
+			if (it->satisfy(tenant)) {
+				satisfy_houses.push_back(*it);
+			}
+		}
+	}
+
+	static void get_rented_houses(Houses& rented_houses)
+	{
+		for (Houses::iterator it = RentManager::houses.begin();
+			it != RentManager::houses.end(); ++it) {
+			if (it->total_rental > 0) {
+				rented_houses.push_back(*it);
+			}
+		}
+	}
+
+	static int rent(int house_index, Tenant& tenant) 
+	{
+		House& house = RentManager::houses[house_index];
+		house.rent_to_tenant(tenant);
+
+		tenant.rent_house(house);
+		RentManager::tenants.push_back(tenant);
+
+		return S_RENT_HOUSE;
+	}
+
+	static int refund(string name) 
+	{
+		Tenants::iterator it = RentManager::tenants.find(name);
+		if (it == RentManager::tenants.end())
+			return E_ILLEAGAL_REFUND;
+		RentManager::houses[it->house_index].refund(*it);
+		RentManager::tenants.erase(it);
+		return S_REFUND;
+	}
+public:
+	static Houses	houses;			// 系统中录入的所有房屋
+	static Tenants	tenants;		// 租到房的租户
+};
+
+Houses RentManager::houses;
+Tenants RentManager::tenants;
 
 int init() 
 {
@@ -189,12 +256,12 @@ int init()
 }
 
 int add_house(int area, int type, int orientation,
-	int elevator, int month_rental) {
+	int elevator, int month_rental) 
+{
 	// TODO:check param
 	House house = House(area, type, orientation, 
 						elevator, month_rental);
-	house.index = g_houses.size();
-	g_houses.push_back(house);
+	RentManager::add_house(house);
 	return 0;
 }
 
@@ -202,42 +269,28 @@ int add_tenant(string name, int type, int area,
 	int orientation, int elevator, int rent_month) 
 {
 	// todo:check param
-	if (g_tenants.find(name) != g_tenants.end()) {
+	if (RentManager::tenants.find(name) != RentManager::tenants.end()) {
 		return E_REPEAT_RENT;
 	}
 	Tenant tenant = Tenant(name, type, area, 
 						   orientation, elevator, rent_month);
 
 	Houses satified_houses;
-	for (Houses::iterator it = g_houses.begin(); 
-		it != g_houses.end(); ++it) {
-		if(it->satisfy(tenant)) {
-			satified_houses.push_back(*it);
-		}
-	}
+	RentManager::get_satisfy_houses(satified_houses, tenant);
+	
 	if (satified_houses.empty())
 		return E_NO_RENTED_HOUSE;
 
 	sort(satified_houses.begin(), satified_houses.end(), 
 		House::compare_by_satify);
-	House& picked_house = g_houses[satified_houses[0].index];
-	picked_house.rent_to_tenant(tenant);
-
-	tenant.rent_house(picked_house);
-	g_tenants.push_back(tenant);
-
-	return S_RENT_HOUSE;
+	
+	return RentManager::rent(satified_houses[0].index, tenant);
 }
 
 int query() 
 {
 	Houses rented_houses;
-	for (Houses::iterator it = g_houses.begin();
-		it != g_houses.end(); ++it) {
-		if (it->total_rental > 0) {
-			rented_houses.push_back(*it);
-		}
-	}
+	RentManager::get_rented_houses(rented_houses);
 	if (rented_houses.empty())
 		return E_NO_RENTED_HOUSE;
 
@@ -251,12 +304,7 @@ int query()
 
 int refund(string name) 
 {
-	Tenants::iterator it = g_tenants.find(name);
-	if (it == g_tenants.end())
-		return E_ILLEAGAL_REFUND;
-	g_houses[it->house_index].refund(*it);
-	g_tenants.erase(it);
-	return S_REFUND;
+	return RentManager::refund(name);
 }
 
 int main(int argc, char* argv) 
