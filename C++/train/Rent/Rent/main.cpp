@@ -13,7 +13,7 @@ using namespace std;
 #define S_RENT_HOUSE			(0x4)
 
 #define E_INVALID_PARAM			(0x1000001)
-#define E_REPEAT_RENT			(0x1000002)
+#define E_REPEAT_TENANT			(0x1000002)
 #define E_ILLEAGAL_REFUND		(0x1000003)
 #define E_RENT_HOUSE			(0x1000004)
 #define E_TOO_MANY_HOUSE		(0x1000005)
@@ -26,15 +26,15 @@ void output_result(int code)
 	map<int, string> result_map;
 	if (!result_map_inited) {
 		result_map[S_INITIALIZE] = "S000:初始化成功";
-		result_map[S_ADD_HOUSE] = "S001:";
+		result_map[S_ADD_HOUSE] = "S001:录入成功";
 		result_map[S_REFUND] = "S002:";
 		result_map[S_QUERY_RENT] = "S003:";
 		result_map[S_RENT_HOUSE] = "S004:";
-		result_map[E_INVALID_PARAM] = "E000:";
-		result_map[E_REPEAT_RENT] = "E001:";
+		result_map[E_INVALID_PARAM] = "E001:参数错误";
+		result_map[E_REPEAT_TENANT] = "E002:重复租客";
 		result_map[E_ILLEAGAL_REFUND] = "E002:";
 		result_map[E_RENT_HOUSE] = "E003:";
-		result_map[E_TOO_MANY_HOUSE] = "E004:";
+		result_map[E_TOO_MANY_HOUSE] = "E005:过多房屋";
 		result_map[E_NO_RENTED_HOUSE] = "E005:";
 		result_map_inited = true;
 	}
@@ -44,48 +44,75 @@ void output_result(int code)
 
 class House;
 
-class Tenant
+class RentBase 
 {
 public:
-	Tenant(string name = string(), int type = 0, int area = 0,
-		int orientation = 0, int elevator = 0, int rent_month = 0)
+	RentBase(int type = 0, int area = 0,
+		int orientation = 0, int elevator = 0)
 	{
-		this->name = name;
 		this->type = type;
 		this->area = area;
 		this->orientation = orientation;
 		this->elevator = elevator;
-		this->rent_month = rent_month;
-		this->house_index = -1;
 	}
-	void rent_house(const House& house);
-
 public:
-	string	name;				// 姓名，长度[1,20]
 	int		type;				// 要求户型[1,4]
 	int		area;				// 要求面积[1,200]
 	int		orientation;		// 要求朝向[0,1]
 	int		elevator;			// 要求是否有电梯[0,1]
+};
+
+class Tenant : public RentBase
+{
+public:
+	Tenant(string name = string(), int type = 0, int area = 0,
+		int orientation = 0, int elevator = 0, int rent_month = 0):
+		RentBase(type, area, orientation, elevator)
+	{
+		this->name = name;
+		this->rent_month = rent_month;
+		this->house_index = -1;
+	}
+
+	bool validate()
+	{
+		return (name.size() >= 1 && name.size() <= 20) &&
+			(area >= 1 && area <= 200) &&
+			(type >= 1 && type <= 3) &&
+			(orientation >= 0 && orientation <= 1) &&
+			(elevator >= 0 && elevator <= 1);
+	}
+
+	void rent_house(const House& house);
+
+public:
+	string	name;				// 姓名，长度[1,20]
 	int		house_index;		// 所租房屋序号，没有租到为-1
 	int		rent_month;			// 租房月数
 };
 
 
 
-class House
+class House : public RentBase
 {
 public:
 	House(int area = 0, int type = 0, int orientation = 0, 
 		int elevator = 0, int month_rental = 0)
+		:RentBase(type, area, orientation, elevator)
 	{
-		this->area = area;
-		this->type = type;
-		this->orientation = orientation;
-		this->elevator = elevator;
 		this->month_rental = month_rental;
 		this->total_rental = 0;
 		this->rented = 0;
 		this->index = -1;
+	}
+
+	bool validate() 
+	{
+		return (area >= 1 && area <= 200) &&
+			(type >= 1 && type <= 4) &&
+			(orientation >= 1 && orientation <= 4) &&
+			(elevator >= 0 && elevator <= 1) &&
+			(month_rental >= 100 && month_rental <= 20000);
 	}
 
 	bool satisfy(const Tenant& tenant) 
@@ -96,8 +123,7 @@ public:
 		bool s_type = type >= tenant.type;
 		bool s_orientation = (tenant.orientation == 0) || 
 			(tenant.orientation == 1 && orientation == 3);
-		bool s_elevator = (tenant.elevator == 0) || 
-			(tenant.elevator == 1 && elevator == 1);
+		bool s_elevator = elevator >= tenant.elevator;
 		return 	s_area && s_type && s_orientation && s_elevator;
 	}
 
@@ -135,6 +161,7 @@ public:
 
 	static bool compare_by_rental(const House& h1, const House& h2) 
 	{
+		// todo: 按要求汇总
 		if (h1.total_rental > h2.total_rental)
 			return true;
 		if (h1.total_rental < h2.total_rental)
@@ -164,10 +191,6 @@ public:
 		return os;
 	}
 public:
-	int		area;				// 面积[1,200]
-	int		type;				// 户型[1,4]
-	int		orientation;		// 朝向[1,4]
-	int		elevator;			// 是否有电梯[0,1]
 	int		month_rental;		// 每月租金[100,20000]
 	int		total_rental;		// 当前已收的总租金
 	int		rented;				// 是否已出租[0,1]
@@ -197,7 +220,17 @@ typedef vector<House>		Houses;
 class RentManager 
 {
 public:
-	static int add_house(House& house) {
+	enum { MAX_HOUSES = 500 };
+	static void initialize() 
+	{
+		houses.clear();
+		tenants.clear();
+	}
+
+	static int add_house(House& house) 
+	{
+		if (houses.size() >= MAX_HOUSES)
+			return E_TOO_MANY_HOUSE;
 		house.index = RentManager::houses.size();
 		RentManager::houses.push_back(house);
 		return S_ADD_HOUSE;
@@ -253,6 +286,7 @@ Tenants RentManager::tenants;
 
 int init() 
 {
+	RentManager::initialize();
 	return S_INITIALIZE;
 }
 
@@ -271,7 +305,7 @@ int add_tenant(string name, int type, int area,
 {
 	// todo:check param
 	if (RentManager::tenants.find(name) != RentManager::tenants.end()) {
-		return E_REPEAT_RENT;
+		return E_REPEAT_TENANT;
 	}
 	Tenant tenant = Tenant(name, type, area, 
 						   orientation, elevator, rent_month);
